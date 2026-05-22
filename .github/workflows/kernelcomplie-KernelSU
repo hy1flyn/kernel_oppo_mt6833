@@ -1,4 +1,4 @@
-name: 编译内核
+name: 编译内核KernelSU
 
 on:
   workflow_dispatch:
@@ -53,6 +53,12 @@ jobs:
         max-size: 2G
 
  
+    - name: 更新 ksu
+      run: |
+        cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
+        rm -rf KernelSU
+        curl -LSs "https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.sh" | bash
+
     - name: 开始编译内核
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
