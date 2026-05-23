@@ -64,8 +64,8 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
         git clone https://github.com/Doze-off/fuck-bpf
-        sed -i '/frameworks\|system\//d' fuck-bpf/apply.sh
-        cat fuck-bpf/apply.sh
+        rm -rf fuck-bpf/frameworks
+        rm -rf fuck-bpf/system
         bash fuck-bpf/apply.sh --mb
 
 
