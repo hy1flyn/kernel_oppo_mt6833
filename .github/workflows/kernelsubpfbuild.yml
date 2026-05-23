@@ -64,7 +64,9 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
         git clone https://github.com/Doze-off/fuck-bpf
-        bash fuck-bpf/apply.sh --mb   # 用 bash 运行更保险
+        sed -i '/frameworks\|system\//d' fuck-bpf/apply.sh
+        cat fuck-bpf/apply.sh
+        bash fuck-bpf/apply.sh --mb
 
 
     - name: 开始编译内核
