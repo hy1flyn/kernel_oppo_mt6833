@@ -73,21 +73,10 @@ jobs:
         curl -LSs "https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.sh" | bash
 
 
-    - name: Find kernel source tree（debug）
-      run: |
-        echo "=== 当前目录 ($PWD) 结构 ==="
-        ls -la
-        echo ""
-        echo "=== 父目录结构 ==="
-        ls -la ../
-        echo ""
-        echo "=== 搜索 input.c ==="
-        find /home/runner/work -name input.c -path "*/drivers/input/*" 2>/dev/null || echo "not found"
-
     - name: bpf stage
       run: |
 
-        cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
+        cd $GITHUB_WORKSPACE
 
 
         git clone https://github.com/Doze-off/fuck-bpf
@@ -99,7 +88,6 @@ jobs:
             git init
         fi
 
-
         git config user.email "builder@kernel.org"
         git config user.name "Kernel Builder"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -108,15 +96,14 @@ jobs:
 
         if ! git rev-parse HEAD &>/dev/null; then
 
-            if [ -f .gitignore ]; then mv .gitignore .gitignore.bak; fi
+            [ -f .gitignore ] && mv .gitignore .gitignore.bak
             git add -Af .
             git commit -m "Full kernel source tree"
-            if [ -f .gitignore.bak ]; then mv .gitignore.bak .gitignore; fi
+            [ -f .gitignore.bak ] && mv .gitignore.bak .gitignore
         fi
 
 
-        echo "=== 仓库文件数: $(git ls-files | wc -l) ==="
-        git ls-files drivers/input/input.c | grep input.c && echo "✅ input.c 已跟踪" || echo "❌ 未跟踪 input.c"
+        git ls-files drivers/input/input.c | grep input.c && echo "✅ input.c tracked" || echo "❌ input.c missing"
 
 
         bash apply.sh --mb
