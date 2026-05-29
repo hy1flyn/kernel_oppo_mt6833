@@ -79,7 +79,7 @@ jobs:
         cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
         
         if [ ! -d fuck-bpf ]; then
-          git clone https://github.com/Doze-off/fuck-bpf
+          git clone https://github.com/techyminati/fuck-bpf
         else
           echo "fuck-bpf already exists, skipping clone"
         fi
