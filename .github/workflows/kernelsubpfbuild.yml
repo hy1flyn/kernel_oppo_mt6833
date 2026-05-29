@@ -75,16 +75,11 @@ jobs:
 
     - name: bpf stage
       run: |
-
         cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
-        
-        if [ ! -d fuck-bpf ]; then
-          git clone https://github.com/techyminati/fuck-bpf
-        else
-          echo "fuck-bpf already exists, skipping clone"
-        fi
-
-        bash fuck-bpf/apply.sh --mb
+        git clone https://github.com/Doze-off/fuck-bpf
+        cp -a fuck-bpf/. .
+        rm -rf fuck-bpf
+        bash apply.sh --mb
 
 
     - name: 开始编译内核
