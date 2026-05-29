@@ -72,28 +72,24 @@ jobs:
         EOF
 
 
-    - name: 应用核心BPF补丁
+    - name: 合并参考仓库的 BPF 提交
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
 
-        PATCH_BASE="https://raw.githubusercontent.com/jsdizkcksv/android_kernel_aresin/A16"
+        git init
+        git add .
+        git commit -m "原始内核源码"
 
-        declare -A patches=(
-          ["3b623692a07b911e65b2d4da32b527c9a9114d54"]="0001-bpf-Add-bpf_line_info-support.patch"
-          ["b4396f91d7ce552ee006f90235c623d4bddb2f8e"]="0002-bpf-add-meta-pointer-for-direct-access.patch"
-          ["15a328ec6c48a1edfd76ed889f161260f3ea7ca9"]="0003-bpf-sockmap-convert-to-generic-sk_msg-interface.patch"
-          ["746bda5240b5e05dece14378a9158998eeb817cd"]="0004-bpf-Update-logging-functions-to-work-with-BTF.patch"
-          ["c74436291044381d4365d91afa0c8f4a574b22b4"]="0005-bpf-verifier_log-fix-null-pointer-dereference.patch"
-        )
-        for commit in "${!patches[@]}"; do
-          patch_file="${patches[$commit]}"
-          echo "下载补丁: $patch_file"
-          wget -q "${PATCH_BASE}/${commit}.patch" -O "$patch_file" || { echo "下载失败: $commit"; exit 1; }
-          echo "应用补丁: $patch_file"
-          patch -p1 < "$patch_file" || { echo "补丁应用失败: $patch_file"; exit 1; }
-        done
 
-        rm -f *.patch
+        git remote add aresin https://github.com/jsdizkcksv/android_kernel_aresin.git
+        git fetch aresin
+
+
+        git cherry-pick 3b623692a07b911e65b2d4da32b527c9a9114d54
+        git cherry-pick b4396f91d7ce552ee006f90235c623d4bddb2f8e
+        git cherry-pick 15a328ec6c48a1edfd76ed889f161260f3ea7ca9
+        git cherry-pick 746bda5240b5e05dece14378a9158998eeb817cd
+        git cherry-pick c74436291044381d4365d91afa0c8f4a574b22b4
 
 
     - name: 开启LXC/Docker内核配置
