@@ -1,25 +1,20 @@
-name: 编译内核KernelSU-bpf
+name: 编译内核KernelSU-lxc-docker-bpf
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
-
-
 
     - name: 构建编译内核环境
       run: |
         sudo apt-get update
         sudo -E apt-get -y -qq install git make bc bison ccache openssl dos2unix zip kmod cpio flex libelf-dev curl libssl-dev libtfm-dev wget device-tree-compiler ca-certificates python3 binutils binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi
         mkdir -p $GITHUB_WORKSPACE/kernel_workspace
-
-
 
     - name: 下载 Gcc编译器
       run: |
@@ -39,11 +34,10 @@ jobs:
         mkdir clang-aosp
         git clone -q --depth=1 https://github.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-6443078 -b 10.0 clang-aosp
     
-    
     - name: 下载内核源码
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace
-        git clone https://github.com/hy1flyn/kernel_oppo_mt6833 android-kernel
+        git clone https://github.com/LF-Repo/kernel_oppo_mt6833 android-kernel
         cd android-kernel
                
     - name: 设置ccache缓存
@@ -52,6 +46,102 @@ jobs:
         key: build-kernel-mido-kernel
         max-size: 2G
 
+
+    - name: 开启BPF内核配置
+      run: |
+        cd $GITHUB_WORKSPACE/kernel_workspace
+        defconfig=android-kernel/arch/arm64/configs/PFGM00_defconfig
+
+        cat << EOF >> $defconfig
+        # BPF/eBPF Support
+        CONFIG_BPF=y
+        CONFIG_BPF_SYSCALL=y
+        CONFIG_BPF_JIT=y
+        CONFIG_HAVE_BPF_JIT=y
+        CONFIG_BPF_JIT_ALWAYS_ON=y
+        CONFIG_HAVE_EBPF_JIT=y
+        CONFIG_BPF_EVENTS=y
+        CONFIG_BPF_KPROBE_OVERRIDE=y
+        CONFIG_CGROUP_BPF=y
+        CONFIG_NET_SCH_INGRESS=y
+        CONFIG_NET_CLS_BPF=y
+        CONFIG_NET_ACT_BPF=y
+        CONFIG_BPF_STREAM_PARSER=y
+        CONFIG_LWTUNNEL_BPF=y
+        CONFIG_DEBUG_INFO_BTF=y
+        EOF
+
+
+    - name: 应用核心BPF补丁
+      run: |
+        cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
+
+        PATCH_BASE="https://raw.githubusercontent.com/jsdizkcksv/android_kernel_aresin/A16"
+
+        declare -A patches=(
+          ["3b623692a07b911e65b2d4da32b527c9a9114d54"]="0001-bpf-Add-bpf_line_info-support.patch"
+          ["b4396f91d7ce552ee006f90235c623d4bddb2f8e"]="0002-bpf-add-meta-pointer-for-direct-access.patch"
+          ["15a328ec6c48a1edfd76ed889f161260f3ea7ca9"]="0003-bpf-sockmap-convert-to-generic-sk_msg-interface.patch"
+          ["746bda5240b5e05dece14378a9158998eeb817cd"]="0004-bpf-Update-logging-functions-to-work-with-BTF.patch"
+          ["c74436291044381d4365d91afa0c8f4a574b22b4"]="0005-bpf-verifier_log-fix-null-pointer-dereference.patch"
+        )
+        for commit in "${!patches[@]}"; do
+          patch_file="${patches[$commit]}"
+          echo "下载补丁: $patch_file"
+          wget -q "${PATCH_BASE}/${commit}.patch" -O "$patch_file" || { echo "下载失败: $commit"; exit 1; }
+          echo "应用补丁: $patch_file"
+          patch -p1 < "$patch_file" || { echo "补丁应用失败: $patch_file"; exit 1; }
+        done
+
+        rm -f *.patch
+
+
+    - name: 开启LXC/Docker内核配置
+      run: |
+        cd $GITHUB_WORKSPACE/kernel_workspace
+        wget https://github.com/wu17481748/lxc-docker/releases/download/lxc-docker-2config/LXC-DOCKER-OPEN-CONFIG.sh
+        chmod +x LXC-DOCKER-OPEN-CONFIG.sh
+        ./LXC-DOCKER-OPEN-CONFIG.sh android-kernel/arch/arm64/configs/PFGM00_defconfig -w
+
+    - name: 禁用 task_turbo 模块
+      run: |
+        cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
+        sed -i '/CONFIG_MTK_TASK_TURBO/d' arch/arm64/configs/PFGM00_defconfig
+        echo "# CONFIG_MTK_TASK_TURBO is not set" >> arch/arm64/configs/PFGM00_defconfig
+
+    - name: 打入lxc补丁(runc)
+      run: |
+        cd $GITHUB_WORKSPACE/kernel_workspace
+        wget https://raw.githubusercontent.com/tomxi1997/lxc-docker-support-for-android/refs/heads/main/runcpatch.sh
+        chmod +x runcpatch.sh
+        if [ -f android-kernel/kernel/cgroup.c ]; then
+          ./runcpatch.sh android-kernel/kernel/cgroup.c
+        fi
+        if [ -f android-kernel/kernel/cgroup/cgroup.c ]; then
+          ./runcpatch.sh android-kernel/kernel/cgroup/cgroup.c
+        fi
+
+    - name: 打入xt_qtaguid补丁
+      run: |
+        cd $GITHUB_WORKSPACE/kernel_workspace
+        if [ -f android-kernel/net/netfilter/xt_qtaguid.c ]; then
+          wget https://github.com/wu17481748/lxc-docker/releases/download/lxc/lxc.patch
+          patch -p0 < lxc.patch
+        fi
+
+    - name: 关闭ANDROID_PARANOID_NETWORK
+      run: |
+        cd $GITHUB_WORKSPACE/kernel_workspace
+        sed -i '/CONFIG_ANDROID_PARANOID_NETWORK/d' android-kernel/arch/arm64/configs/PFGM00_defconfig
+        echo "# CONFIG_ANDROID_PARANOID_NETWORK is not set" >> android-kernel/arch/arm64/configs/PFGM00_defconfig
+
+    - name: 开启KVM配置
+      run: |
+        cd $GITHUB_WORKSPACE/kernel_workspace
+        echo "CONFIG_VIRTUALIZATION=y" >> android-kernel/arch/arm64/configs/PFGM00_defconfig
+        echo "CONFIG_KVM=y" >> android-kernel/arch/arm64/configs/PFGM00_defconfig
+        echo "CONFIG_VHOST_NET=y" >> android-kernel/arch/arm64/configs/PFGM00_defconfig
+        echo "CONFIG_VHOST_CROSS_ENDIAN_LEGACY=y" >> android-kernel/arch/arm64/configs/PFGM00_defconfig
 
     - name: kernelsu legacy patch
       run: |
@@ -65,49 +155,11 @@ jobs:
         # 应用 patch（-p1 是标准，忽略空格差异）
         patch -p1 < ksu-4.14.patch || { echo "patch 应用失败"; cat ksu-4.14.patch; exit 1; }
         
- 
     - name: kernelsu stage
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
         rm -rf KernelSU
         curl -LSs "https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.sh" | bash
-
-
-    - name: bpf stage
-      run: |
-
-        cd $GITHUB_WORKSPACE
-
-
-        git clone https://github.com/Doze-off/fuck-bpf
-        cp -a fuck-bpf/. .
-        rm -rf fuck-bpf
-
-
-        if [ ! -d .git ]; then
-            git init
-        fi
-
-        git config user.email "builder@kernel.org"
-        git config user.name "Kernel Builder"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git config --global user.name "github-actions[bot]"
-
-
-        if ! git rev-parse HEAD &>/dev/null; then
-
-            [ -f .gitignore ] && mv .gitignore .gitignore.bak
-            git add -Af .
-            git commit -m "Full kernel source tree"
-            [ -f .gitignore.bak ] && mv .gitignore.bak .gitignore
-        fi
-
-
-        git ls-files drivers/input/input.c | grep input.c && echo "✅ input.c tracked" || echo "❌ input.c missing"
-
-
-        bash apply.sh --mb
-
 
     - name: 开始编译内核
       run: |
@@ -115,9 +167,29 @@ jobs:
         export PATH=$GITHUB_WORKSPACE/kernel_workspace/clang-aosp/bin:$GITHUB_WORKSPACE/kernel_workspace/gcc64/bin:$GITHUB_WORKSPACE/kernel_workspace/gcc32/bin:$PATH
         export KBUILD_BUILD_HOST=3897069329@qq.com
         export KBUILD_BUILD_USER=LF-Repo
+
         make -s -j$(nproc --all) O=out ARCH=arm64 PFGM00_defconfig
-        make -j$(nproc --all) CC="ccache clang" O=out ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi- LD=ld.lld
-                
+        make -j$(nproc --all) CC="ccache clang" O=out ARCH=arm64 \
+          CLANG_TRIPLE=aarch64-linux-gnu- \
+          CROSS_COMPILE=aarch64-linux-android- \
+          CROSS_COMPILE_ARM32=arm-linux-androideabi- \
+          LD=ld.lld \
+          KCFLAGS="-Wno-error=sizeof-array-div"
+
+    # ==================== 新增：二进制BPF修复（需要在编译后执行） ====================
+    - name: 应用二进制BPF补丁（MTK专用修复）
+      run: |
+        cd $GITHUB_WORKSPACE/kernel_workspace
+        # 下载二进制修复脚本（如果参考仓库提供了该脚本，否则可以跳过）
+        # 以下URL仅为示例，需要替换为实际有效的脚本地址
+        # 如果找不到脚本，可以注释掉整个步骤
+        echo "尝试下载MTK BPF二进制修复脚本..."
+        if wget -q https://raw.githubusercontent.com/jsdizkcksv/android_kernel_aresin/A16/scripts/mtk_bpf_patcher.py -O mtk_bpf_patcher.py; then
+          python3 mtk_bpf_patcher.py android-kernel/out/arch/arm64/boot/Image.gz-dtb
+          echo "二进制BPF修复已应用"
+        else
+          echo "警告：未找到mtk_bpf_patcher.py，跳过二进制修复"
+        fi
 
     - name: 制作Anykernel3卡刷包
       run: |
@@ -128,15 +200,12 @@ jobs:
         sed -i 's/is_slot_device=0;/is_slot_device=auto;/g' AnyKernel3/anykernel.sh
         cp android-kernel/out/arch/arm64/boot/Image.gz-dtb AnyKernel3/
         rm -rf AnyKernel3/.git* AnyKernel3/README.md
-        
-    
-    
+
     - name: 上传 Anykernel3
       uses: actions/upload-artifact@v4
       with:
         name: 卡刷包.zip
         path: kernel_workspace/AnyKernel3/*
-        
 
     - name: 上传编译内核
       uses: actions/upload-artifact@v4
