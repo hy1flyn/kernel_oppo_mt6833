@@ -59,6 +59,13 @@ jobs:
         chmod +x LXC-DOCKER-OPEN-CONFIG.sh
         ./LXC-DOCKER-OPEN-CONFIG.sh android-kernel/arch/arm64/configs/PFGM00_defconfig -w
 
+    - name: 禁用 task_turbo 模块
+      run: |
+        cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
+        sed -i '/CONFIG_MTK_TASK_TURBO/d' arch/arm64/configs/PFGM00_defconfig
+        echo "# CONFIG_MTK_TASK_TURBO is not set" >> arch/arm64/configs/PFGM00_defconfig
+
+
     - name: 打入lxc补丁(runc)
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace
