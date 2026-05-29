@@ -80,15 +80,30 @@ jobs:
 
         if [ ! -d .git ]; then
           git init
-          git config user.email "ad-ios337@outlook.com"
-          git config user.name "hy1flyn"
-          git add -A
+
+          if [ -f .gitignore ]; then
+            mv .gitignore .gitignore.bak
+          fi
+
+          git add -f .
+          git config user.email "builder@kernel.org"
+          git config user.name "Kernel Builder"
           git commit -m "Initial kernel source tree"
+
+          if [ -f .gitignore.bak ]; then
+            mv .gitignore.bak .gitignore
+          fi
         else
 
           if ! git rev-parse HEAD &>/dev/null; then
-            git add -A
+            if [ -f .gitignore ]; then
+              mv .gitignore .gitignore.bak
+            fi
+            git add -f .
             git commit -m "Initial kernel commit"
+            if [ -f .gitignore.bak ]; then
+              mv .gitignore.bak .gitignore
+            fi
           fi
         fi
 
@@ -100,6 +115,10 @@ jobs:
         git clone https://github.com/Doze-off/fuck-bpf
         cp -a fuck-bpf/. .
         rm -rf fuck-bpf
+
+
+        echo "=== Initial commit contains:"
+        git show --stat HEAD | tail -n 5
 
 
         bash apply.sh --mb
