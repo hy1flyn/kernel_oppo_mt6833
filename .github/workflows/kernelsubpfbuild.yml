@@ -43,7 +43,7 @@ jobs:
     - name: 下载内核源码
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace
-        git clone https://github.com/LF-Repo/kernel_oppo_mt6833 android-kernel
+        git clone https://github.com/hy1flyn/kernel_oppo_mt6833 android-kernel
         cd android-kernel
                
     - name: 设置ccache缓存
@@ -76,7 +76,10 @@ jobs:
     - name: bpf stage
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git config --global user.name "github-actions[bot]"
         git clone https://github.com/Doze-off/fuck-bpf
+
         cp -a fuck-bpf/. .
         rm -rf fuck-bpf
         bash apply.sh --mb
