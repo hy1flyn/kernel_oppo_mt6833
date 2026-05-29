@@ -80,8 +80,8 @@ jobs:
 
         if [ ! -d .git ]; then
           git init
-          git config user.email "builder@kernel.org"
-          git config user.name "Kernel Builder"
+          git config user.email "ad-ios337@outlook.com"
+          git config user.name "hy1flyn"
           git add -A
           git commit -m "Initial kernel source tree"
         else
