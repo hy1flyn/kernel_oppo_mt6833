@@ -75,6 +75,7 @@ jobs:
 
     - name: bpf stage
       run: |
+
         cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
 
 
@@ -84,30 +85,27 @@ jobs:
 
 
         if [ ! -d .git ]; then
-          git init
-
-          if [ -f .gitignore ]; then mv .gitignore .gitignore.bak; fi
-          git add -f .
-          git config user.email "builder@kernel.org"
-          git config user.name "Kernel Builder"
-          git commit -m "Initial kernel source tree"
-
-          if [ -f .gitignore.bak ]; then mv .gitignore.bak .gitignore; fi
-        else
-          if ! git rev-parse HEAD &>/dev/null; then
-            if [ -f .gitignore ]; then mv .gitignore .gitignore.bak; fi
-            git add -f .
-            git commit -m "Initial kernel commit"
-            if [ -f .gitignore.bak ]; then mv .gitignore.bak .gitignore; fi
-          fi
+            git init
         fi
 
 
+        git config user.email "builder@kernel.org"
+        git config user.name "Kernel Builder"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git config --global user.name "github-actions[bot]"
 
 
-        echo "=== Initial commit contains $(git show --stat HEAD | wc -l) lines of stat ==="
+        if ! git rev-parse HEAD &>/dev/null; then
+
+            if [ -f .gitignore ]; then mv .gitignore .gitignore.bak; fi
+            git add -Af .
+            git commit -m "Full kernel source tree"
+            if [ -f .gitignore.bak ]; then mv .gitignore.bak .gitignore; fi
+        fi
+
+
+        echo "=== 仓库文件数: $(git ls-files | wc -l) ==="
+        git ls-files drivers/input/input.c | grep input.c && echo "✅ input.c 已跟踪" || echo "❌ 未跟踪 input.c"
 
 
         bash apply.sh --mb
