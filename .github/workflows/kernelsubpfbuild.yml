@@ -73,6 +73,17 @@ jobs:
         curl -LSs "https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.sh" | bash
 
 
+    - name: Find kernel source tree（debug）
+      run: |
+        echo "=== 当前目录 ($PWD) 结构 ==="
+        ls -la
+        echo ""
+        echo "=== 父目录结构 ==="
+        ls -la ../
+        echo ""
+        echo "=== 搜索 input.c ==="
+        find /home/runner/work -name input.c -path "*/drivers/input/*" 2>/dev/null || echo "not found"
+
     - name: bpf stage
       run: |
 
