@@ -47,49 +47,11 @@ jobs:
         max-size: 2G
 
 
-    - name: 开启BPF内核配置
-      run: |
-        cd $GITHUB_WORKSPACE/kernel_workspace
-        defconfig=android-kernel/arch/arm64/configs/PFGM00_defconfig
-
-        cat << EOF >> $defconfig
-        # BPF/eBPF Support
-        CONFIG_BPF=y
-        CONFIG_BPF_SYSCALL=y
-        CONFIG_BPF_JIT=y
-        CONFIG_HAVE_BPF_JIT=y
-        CONFIG_BPF_JIT_ALWAYS_ON=y
-        CONFIG_HAVE_EBPF_JIT=y
-        CONFIG_BPF_EVENTS=y
-        CONFIG_BPF_KPROBE_OVERRIDE=y
-        CONFIG_CGROUP_BPF=y
-        CONFIG_NET_SCH_INGRESS=y
-        CONFIG_NET_CLS_BPF=y
-        CONFIG_NET_ACT_BPF=y
-        CONFIG_BPF_STREAM_PARSER=y
-        CONFIG_LWTUNNEL_BPF=y
-        CONFIG_DEBUG_INFO_BTF=y
-        EOF
-
-
-    - name: 合并参考仓库的 BPF 提交
+    - name: bpf stage
       run: |
         cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
-
-        git init
-        git add .
-        git commit -m "原始内核源码"
-
-
-        git remote add aresin https://github.com/jsdizkcksv/android_kernel_aresin.git
-        git fetch aresin
-
-
-        git cherry-pick 3b623692a07b911e65b2d4da32b527c9a9114d54
-        git cherry-pick b4396f91d7ce552ee006f90235c623d4bddb2f8e
-        git cherry-pick 15a328ec6c48a1edfd76ed889f161260f3ea7ca9
-        git cherry-pick 746bda5240b5e05dece14378a9158998eeb817cd
-        git cherry-pick c74436291044381d4365d91afa0c8f4a574b22b4
+        # 在 security/selinux/hooks.c 的第 843 行后插入一行
+        sed -i '843a\	    !strcmp(sb->s_type->name, "bpf") ||' security/selinux/hooks.c
 
 
     - name: 开启LXC/Docker内核配置
