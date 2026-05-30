@@ -152,20 +152,7 @@ jobs:
           LD=ld.lld \
           KCFLAGS="-Wno-error=sizeof-array-div"
 
-    # ==================== 新增：二进制BPF修复（需要在编译后执行） ====================
-    - name: 应用二进制BPF补丁（MTK专用修复）
-      run: |
-        cd $GITHUB_WORKSPACE/kernel_workspace
-        # 下载二进制修复脚本（如果参考仓库提供了该脚本，否则可以跳过）
-        # 以下URL仅为示例，需要替换为实际有效的脚本地址
-        # 如果找不到脚本，可以注释掉整个步骤
-        echo "尝试下载MTK BPF二进制修复脚本..."
-        if wget -q https://raw.githubusercontent.com/jsdizkcksv/android_kernel_aresin/A16/scripts/mtk_bpf_patcher.py -O mtk_bpf_patcher.py; then
-          python3 mtk_bpf_patcher.py android-kernel/out/arch/arm64/boot/Image.gz-dtb
-          echo "二进制BPF修复已应用"
-        else
-          echo "警告：未找到mtk_bpf_patcher.py，跳过二进制修复"
-        fi
+
 
     - name: 制作Anykernel3卡刷包
       run: |
