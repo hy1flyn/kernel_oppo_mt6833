@@ -52,17 +52,24 @@ jobs:
         cd $GITHUB_WORKSPACE/kernel_workspace/android-kernel
         BPF_FILE="kernel/bpf/arraymap.c"
         if [ ! -f "$BPF_FILE" ]; then
-          echo "错误: 找不到 $BPF_FILE，跳过 BPF 修改"
+          echo "错误: 找不到 $BPF_FILE"
           exit 1
         fi
 
-        sed -i '698d' "$BPF_FILE"           # 删除第698行的 };
-        sed -i '692i\};' "$BPF_FILE"        # 在第692行插入 };
-        sed -i '275d' "$BPF_FILE"           # 删除第275行的 }
-        sed -i '267,272d' "$BPF_FILE"       # 删除第267-272行
-        sed -i '267i\else memcpy(array->value +' "$BPF_FILE"  # 在第267行插入新代码
-        echo "BPF 修改已完成"
+        sed -i '/^[[:space:]]*else[[:space:]]*{/,/^[[:space:]]*}/ {
+            /^[[:space:]]*else[[:space:]]*{/ {
+                n
+                :loop
+                /^[[:space:]]*}/ {
+                    s/^[[:space:]]*}/ else memcpy(array->value + array->elem_size * (index \& array->index_mask), value, map->value_size);/
+                    b
+                }
+                N
+                b loop
+            }
+        }' "$BPF_FILE"
 
+        echo "BPF 修改已完成"
 
 
     - name: 开启LXC/Docker内核配置
